@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IKEA Employee Engagement Analytics</title>
+    <meta name="description" content="IKEA's platform for analyzing employee feedback and engagement">
+    <!-- Alpine.js CDN -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen" x-data="engagementApp()">
+    <!-- Header -->
+    <header class="bg-blue-700 text-white shadow-md">
+        <div class="container mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center">
+            <div class="flex items-center mb-4 md:mb-0">
+                <img src="https://logo.clearbit.com/ikea.com" alt="IKEA Logo" class="h-10 mr-3">
+                <h1 class="text-xl md:text-2xl font-bold">Employee Engagement Analytics</h1>
+            </div>
+            <div class="flex items-center">
+                <div class="mr-4 text-sm md:text-base">
+                    <span class="font-semibold">Welcome, Tiffany Monaco</span>
+                    <p class="text-xs text-blue-100">Chief People Officer</p>
+                </div>
+                <img src="https://randomuser.me/api/portraits/women/32.jpg" alt="Profile" class="h-10 w-10 rounded-full border-2 border-white">
+            </div>
+        </div>
+    </header>
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- Dashboard Overview -->
+        <section class="mb-10">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Overall Engagement Score -->
+                <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
+                    <h3 class="text-gray-500 text-sm font-medium mb-1">Overall Engagement</h3>
+                    <div class="flex items-end">
+                        <p class="text-3xl font-bold text-gray-800" x-text="overallScore + '%'"></p>
+                        <span x-show="scoreChange > 0" class="ml-2 text-green-500 text-sm flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+                            </svg>
+                            <span x-text="scoreChange + '%'"></span>
+                        </span>
+                        <span x-show="scoreChange < 0" class="ml-2 text-red-500 text-sm flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                            <span x-text="Math.abs(scoreChange) + '%'"></span>
+                        </span>
+                    </div>
+                    <p class="text-gray-500 text-sm mt-1">vs. previous quarter</p>
+                </div>
+                <!-- Participation Rate -->
+                <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
+                    <h3 class="text-gray-500 text-sm font-medium mb-1">Participation Rate</h3>
+                    <p class="text-3xl font-bold text-gray-800" x-text="participationRate + '%'"></p>
+                    <p class="text-gray-500 text-sm mt-1"><span x-text="totalResponses"></span> responses this quarter</p>
+                </div>
+                <!-- eNPS Score -->
+                <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
+                    <h3 class="text-gray-500 text-sm font-medium mb-1">Employee Net Promoter Score</h3>
+                    <p class="text-3xl font-bold text-gray-800" x-text="eNPS"></p>
+                    <p class="text-gray-500 text-sm mt-1">
+                        <span x-text="promoters + '%'"></span> promoters, 
+                        <span x-text="detractors + '%'"></span> detractors
+                    </p>
+                </div>
+                <!-- Sustainability Engagement -->
+                <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-yellow-500">
+                    <h3 class="text-gray-500 text-sm font-medium mb-1">Sustainability Engagement</h3>
+                    <p class="text-3xl font-bold text-gray-800" x-text="sustainabilityScore + '%'"></p>
+                    <p class="text-gray-500 text-sm mt-1"><span x-text="sustainabilityIdeas"></span> new ideas submitted</p>
+                </div>
+            </div>
+        </section>
+        <!-- Filters and Controls -->
+        <section class="mb-8">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4 md:mb-0">Engagement Analytics</h2>
+                    <div class="flex flex-wrap gap-3">
+                        <select x-model="selectedDepartment" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2.5">
+                            <option value="all">All Departments</option>
+                            <template x-for="dept in departments" :key="dept">
+                                <option :value="dept" x-text="dept"></option>
+                            </template>
+                        </select>
+                        <select x-model="selectedTimeframe" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2.5">
+                            <option value="quarter">Quarterly</option>
+                            <option value="month">Monthly</option>
+                            <option value="year">Yearly</option>
+                        </select>
+                        <button @click="refreshData" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+                <!-- Charts Row -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <h3 class="text-gray-700 font-medium mb-3">Engagement Trend</h3>
+                        <canvas id="engagementTrendChart" height="250"></canvas>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <h3 class="text-gray-700 font-medium mb-3">Engagement by Department</h3>
+                        <canvas id="departmentChart" height="250"></canvas>
+                    </div>
+                </div>
+                <!-- Key Metrics Row -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <h3 class="text-gray-700 font-medium mb-3">Engagement Dimensions</h3>
+                        <canvas id="dimensionsChart" height="250"></canvas>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <h3 class="text-gray-700 font-medium mb-3">Sentiment Analysis</h3>
+                        <canvas id="sentimentChart" height="250"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- Key Insights -->
+        <section class="mb-8">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">Key Insights</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Strengths -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-green-600 mb-3 flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Strengths
+                        </h3>
+                        <ul class="space-y-2">
+                            <template x-for="(strength, index) in strengths" :key="index">
+                                <li class="flex items-start">
+                                    <span class="text-green-500 mr-2">•</span>
+                                    <span x-text="strength"></span>
+                                </li>
+                            </template>
+                        </ul>
+                    </div>
+                    <!-- Areas for Improvement -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-amber-600 mb-3 flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            Areas for Improvement
+                        </h3>
+                        <ul class="space-y-2">
+                            <template x-for="(area, index) in improvementAreas" :key="index">
+                                <li class="flex items-start">
+                                    <span class="text-amber-500 mr-2">•</span>
+                                    <span x-text="area"></span>
+                                </li>
+                            </template>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- Recent Feedback -->
+        <section class="mb-8">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-gray-800">Recent Feedback</h2>
+                    <button @click="showAllFeedback = !showAllFeedback" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                        <span x-text="showAllFeedback ? 'Show Less' : 'View All'"></span>
+                    </button>
+                </div>
+                <div class="space-y-4">
+                    <template x-for="(feedback, index) in displayedFeedback" :key="index">
+                        <div class="border-b border-gray-200 pb-4 fade-in">
+                            <div class="flex justify-between items-start mb-2">
+                                <div>
+                                    <h4 class="font-medium text-gray-800" x-text="feedback.department + ' • ' + feedback.role"></h4>
+                                    <p class="text-sm text-gray-500" x-text="feedback.date"></p>
+                                </div>
+                                <div class="flex items-center">
+                                    <template x-if="feedback.sentiment === 'positive'">
+                                        <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">Positive</span>
+                                    </template>
+                                    <template x-if="feedback.sentiment === 'neutral'">
+                                        <span class="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">Neutral</span>
+                                    </template>
+                                    <template x-if="feedback.sentiment === 'negative'">
+                                        <span class="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded">Negative</span>
+                                    </template>
+                                </div>
+                            </div>
+                            <p class="text-gray-700" x-text="feedback.comment"></p>
+                            <div class="mt-2 flex">
+                                <template x-if="feedback.tags.length > 0">
+                                    <div class="flex flex-wrap gap-1">
+                                        <template x-for="(tag, tagIndex) in feedback.tags" :key="tagIndex">
+                                            <span class="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded" x-text="tag"></span>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </section>
+        <!-- Action Plan -->
+        <section>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">Recommended Actions</h2>
+                <div class="space-y-4">
+                    <template x-for="(action, index) in recommendedActions" :key="index">
+                        <div class="border border-gray-200 rounded-lg p-4" :class="{'bg-blue-50': action.priority === 'high'}">
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-medium text-gray-800" x-text="action.title"></h4>
+                                <template x-if="action.priority === 'high'">
+                                    <span class="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded">High Priority</span>
+                                </template>
+                                <template x-if="action.priority === 'medium'">
+                                    <span class="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded">Medium Priority</span>
+                                </template>
+                                <template x-if="action.priority === 'low'">
+                                    <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">Low Priority</span>
+                                </template>
+                            </div>
+                            <p class="text-gray-700 mb-3" x-text="action.description"></p>
+                            <div class="flex justify-between items-center">
+                                <div class="text-sm text-gray-500">
+                                    <span>Impact: </span>
+                                    <span class="font-medium" x-text="action.impact"></span>
+                                </div>
+                                <button @click="toggleActionStatus(index)" class="text-sm font-medium px-3 py-1 rounded" :class="action.status === 'pending' ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' : 'bg-green-100 text-green-700 hover:bg-green-200'">
+                                    <span x-text="action.status === 'pending' ? 'Start Action' : 'In Progress'"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </section>
+    </main>
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-8 mt-12">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="mb-4 md:mb-0">
+                    <img src="https://logo.clearbit.com/ikea.com" alt="IKEA Logo" class="h-8 mb-2">
+                    <p class="text-sm text-gray-400">© 2023 IKEA. All rights reserved.</p>
+                </div>
+                <div class="text-center md:text-right">
+                    <h3 class="text-lg font-semibold mb-2">Employee Engagement Analytics Platform</h3>
+                    <p class="text-sm text-gray-400">Version 1.2.0 | Last updated: June 15, 2023</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+    <script>
+        function engagementApp() {
+            return {
+                // Dashboard metrics
+                overallScore: 78,
+                scoreChange: 3.2,
+                participationRate: 84,
+                totalResponses: 7842,
+                eNPS: 32,
+                promoters: 48,
+                detractors: 16,
+                sustainabilityScore: 71,
+                sustainabilityIdeas: 342,
+                // Filters
+                selectedDepartment: 'all',
+                selectedTimeframe: 'quarter',
+                departments: ['Retail Operations', 'Product Development', 'Supply Chain', 'Marketing', 'Customer Service', 'HR', 'IT'],
+                // Insights
+                strengths: [
+                    'Strong alignment with company values and sustainability mission (82% positive)',
+                    'High satisfaction with work-life balance initiatives (76% positive)',
+                    'Positive perception of diversity and inclusion efforts (79% positive)',
+                    'Strong team collaboration scores across departments (81% positive)'
+                ],
+                improvementAreas: [
+                    'Career development opportunities need enhancement (58% satisfaction)',
+                    'Communication between management and staff requires improvement (62% satisfaction)',
+                    'Recognition programs could be more effective (64% satisfaction)',
+                    'Training for sustainability initiatives needs expansion (61% satisfaction)'
+                ],
+                // Feedback
+                showAllFeedback: false,
+                recentFeedback: [
+                    {
+                        department: 'Retail Operations',
+                        role: 'Store Associate',
+                        date: 'June 10, 2023',
+                        sentiment: 'positive',
+                        comment: 'The new sustainability training program has been eye-opening. I feel more equipped to talk to customers about our eco-friendly products.',
+                        tags: ['Training', 'Sustainability']
+                    },
+                    {
+                        department: 'Product Development',
+                        role: 'Designer',
+                        date: 'June 8, 2023',
+                        sentiment: 'positive',
+                        comment: 'I appreciate the creative freedom we have to explore sustainable materials. The cross-functional workshops have been incredibly valuable.',
+                        tags: ['Innovation', 'Collaboration']
+                    },
+                    {
+                        department: 'Supply Chain',
+                        role: 'Logistics Coordinator',
+                        date: 'June 7, 2023',
+                        sentiment: 'negative',
+                        comment: 'Communication between departments is still a challenge. Often we receive last-minute changes that affect our entire planning process.',
+                        tags: ['Communication', 'Process']
+                    },
+                    {
+                        department: 'Marketing',
+                        role: 'Content Specialist',
+                        date: 'June 5, 2023',
+                        sentiment: 'neutral',
+                        comment: 'The sustainability messaging guidelines are helpful, but we need more training on how to effectively communicate these concepts to different customer segments.',
+                        tags: ['Training', 'Communication']
+                    },
+                    {
+                        department: 'HR',
+                        role: 'Talent Acquisition',
+                        date: 'June 3, 2023',
+                        sentiment: 'positive',
+                        comment: 'The new employee referral program has been a great success. We\'re seeing more qualified candidates who align with our sustainability values.',
+                        tags: ['Recruitment', 'Programs']
+                    },
+                    {
+                        department: 'Customer Service',
+                        role: 'Support Representative',
+                        date: 'June 2, 2023',
+                        sentiment: 'negative',
+                        comment: 'We need better tools to track and resolve sustainability-related customer inquiries. The current system is too fragmented.',
+                        tags: ['Tools', 'Customer Experience']
+                    },
+                    {
+                        department: 'IT',
+                        role: 'Systems Analyst',
+                        date: 'May 30, 2023',
+                        sentiment: 'neutral',
+                        comment: 'The new sustainability dashboard is a step in the right direction, but we need more user feedback to make it truly effective for all departments.',
+                        tags: ['Tools', 'Feedback']
+                    },
+                    {
+                        department: 'Retail Operations',
+                        role: 'Store Manager',
+                        date: 'May 28, 2023',
+                        sentiment: 'positive',
+                        comment: 'The flexible scheduling system has significantly improved staff morale and reduced turnover in my store. Great initiative!',
+                        tags: ['Work-life Balance', 'Management']
+                    }
+                ],
+                // Actions
+                recommendedActions: [
+                    {
+                        title: 'Enhance Career Development Program',
+                        description: 'Implement structured career pathing with focus on sustainability roles and skills development. Include mentorship opportunities.',
+                        priority: 'high',
+                        impact: 'Retention & Engagement',
+                        status: 'pending'
+                    },
+                    {
+                        title: 'Improve Cross-Department Communication',
+                        description: 'Launch bi-weekly cross-functional team meetings focused on sustainability initiatives and collaborative problem-solving.',
+                        priority: 'high',
+                        impact: 'Collaboration & Efficiency',
+                        status: 'pending'
+                    },
+                    {
+                        title: 'Expand Sustainability Training',
+                        description: 'Develop advanced modules for product knowledge and customer communication about sustainable products and practices.',
+                        priority: 'medium',
+                        impact: 'Knowledge & Customer Experience',
+                        status: 'in-progress'
+                    },
+                    {
+                        title: 'Revamp Recognition Program',
+                        description: 'Create a specific recognition track for sustainability innovations and contributions from employees at all levels.',
+                        priority: 'medium',
+                        impact: 'Motivation & Innovation',
+                        status: 'pending'
+                    },
+                    {
+                        title: 'Implement Feedback Loop Improvements',
+                        description: 'Establish a more responsive system for addressing employee suggestions, with transparent tracking and implementation timelines.',
+                        priority: 'low',
+                        impact: 'Trust & Participation',
+                        status: 'in-progress'
+                    }
+                ],
+                // Computed properties
+                get displayedFeedback() {
+                    return this.showAllFeedback ? this.recentFeedback : this.recentFeedback.slice(0, 3);
+                },
+                // Methods
+                refreshData() {
+                    // Simulate data refresh with loading state
+                    this.isLoading = true;
+                    setTimeout(() => {
+                        // Update some random data to simulate refresh
+                        this.overallScore = Math.floor(75 + Math.random() * 8);
+                        this.scoreChange = (Math.random() * 6 - 2).toFixed(1);
+                        this.participationRate = Math.floor(80 + Math.random() * 10);
+                        // Reinitialize charts with new data
+                        this.initCharts();
+                        this.isLoading = false;
+                    }, 800);
+                },
+                toggleActionStatus(index) {
+                    if (this.recommendedActions[index].status === 'pending') {
+                        this.recommendedActions[index].status = 'in-progress';
+                    } else {
+                        this.recommendedActions[index].status = 'pending';
+                    }
+                },
+                initCharts() {
+                    // Engagement Trend Chart
+                    const trendCtx = document.getElementById('engagementTrendChart').getContext('2d');
+                    const trendChart = new Chart(trendCtx, {
+                        type: 'line',
+                        data: {
+                            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                            datasets: [{
+                                label: 'Overall Engagement',
+                                data: [72, 73, 75, 74, 76, 78],
+                                borderColor: '#3b82f6',
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                tension: 0.3,
+                                fill: true
+                            },
+                            {
+                                label: 'Sustainability Engagement',
+                                data: [65, 67, 68, 70, 69, 71],
+                                borderColor: '#10b981',
+                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                tension: 0.3,
+                                fill: true
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    position: 'top',
+                                },
+                            },
+                            scales: {
+                                y: {
+                                    min: 60,
+                                    max: 85
+                                }
+                            }
+                        }
+                    });
+                    // Department Chart
+                    const deptCtx = document.getElementById('departmentChart').getContext('2d');
+                    const deptChart = new Chart(deptCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: ['Retail', 'Product Dev', 'Supply Chain', 'Marketing', 'Customer Svc', 'HR', 'IT'],
+                            datasets: [{
+                                label: 'Engagement Score',
+                                data: [76, 82, 74, 80, 73, 85, 79],
+                                backgroundColor: [
+                                    'rgba(59, 130, 246, 0.7)',
+                                    'rgba(16, 185, 129, 0.7)',
+                                    'rgba(249, 115, 22, 0.7)',
+                                    'rgba(139, 92, 246, 0.7)',
+                                    'rgba(236, 72, 153, 0.7)',
+                                    'rgba(245, 158, 11, 0.7)',
+                                    'rgba(6, 182, 212, 0.7)'
+                                ],
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    min: 60,
+                                    max: 90
+                                }
+                            }
+                        }
+                    });
+                    // Dimensions Chart
+                    const dimCtx = document.getElementById('dimensionsChart').getContext('2d');
+                    const dimChart = new Chart(dimCtx, {
+                        type: 'radar',
+                        data: {
+                            labels: [
+                                'Work Environment',
+                                'Company Values',
+                                'Leadership',
+                                'Career Growth',
+                                'Compensation',
+                                'Work-Life Balance',
+                                'Sustainability'
+                            ],
+                            datasets: [{
+                                label: 'Current Quarter',
+                                data: [75,
